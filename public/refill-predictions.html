@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Refill Predictions - DataX System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .page-header h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 0.7rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        .filter-group select:focus, .filter-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 0.5rem 0;
+        }
+
+        .card .description {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .urgency-due-today { color: #dc3545; }
+        .urgency-due-tomorrow { color: #fd7e14; }
+        .urgency-due-this-week { color: #ffc107; }
+        .urgency-due-next-week { color: #198754; }
+        .urgency-due-later { color: #6c757d; }
+
+        .predictions-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .predictions-table {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+
+        .urgency-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .badge-due-today {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-due-tomorrow {
+            background: #ffeaa7;
+            color: #856404;
+        }
+
+        .badge-due-this-week {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .badge-due-next-week {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-due-later {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .store-selection {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .store-selection h3 {
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .patient-id {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+
+        .email-link {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .email-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-group {
+                min-width: unset;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                font-size: 0.9rem;
+            }
+            
+            th, td {
+                padding: 0.7rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>🔮 Patient Refill Predictions</h1>
+            <div class="user-section">
+                <span class="user-info" id="user-info">Loading...</span>
+                <a href="/dashboard" class="nav-btn">Dashboard</a>
+                <a href="/logout" class="nav-btn">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>Predict Patient Refill Needs</h2>
+            <p>Anticipate when patients will need medication refills based on their prescription history and repeat patterns</p>
+        </div>
+
+        <div class="filters">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="storeSelect">Select Store</label>
+                    <select id="storeSelect">
+                        <option value="">Select a store to view predictions...</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="loadPredictions()">Generate Predictions</button>
+                <button class="btn" onclick="exportPredictions()" id="exportBtn" style="display: none;">Export to CSV</button>
+            </div>
+        </div>
+
+        <div id="storeSelectionMessage" class="store-selection">
+            <h3>📍 Please Select a Store</h3>
+            <p>Choose a store from the dropdown above to generate refill predictions for patients with active prescriptions that have remaining repeats.</p>
+        </div>
+
+        <div id="summaryCards" class="summary-cards" style="display: none;"></div>
+        
+        <div id="predictionsSection" class="predictions-section" style="display: none;">
+            <div class="section-header">
+                <h3 id="sectionTitle">Refill Predictions</h3>
+                <p id="sectionSubtitle">Patients likely to need refills based on 30-day cycles</p>
+            </div>
+            <div id="loadingIndicator" class="loading">
+                <p>🔄 Analyzing prescription patterns...</p>
+            </div>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            <div id="predictionsTable" class="predictions-table"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let storeData = [];
+
+        // Load user info and initial data
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/refill-predictions/stores');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update user info (will be set by API response)
+                document.getElementById('user-info').textContent = '👤 User Dashboard';
+                
+                // Populate store dropdown
+                storeData = data.stores || [];
+                const storeSelect = document.getElementById('storeSelect');
+                storeSelect.innerHTML = '<option value="">Select a store to view predictions...</option>';
+                
+                storeData.forEach(store => {
+                    const option = document.createElement('option');
+                    option.value = store.storeId;
+                    option.textContent = `${store.storeName} (${store.patientCount} patients)`;
+                    storeSelect.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showError('Failed to load store information: ' + error.message);
+            }
+        }
+
+        // Load predictions for selected store
+        async function loadPredictions() {
+            const storeId = document.getElementById('storeSelect').value;
+            
+            if (!storeId) {
+                alert('Please select a store first');
+                return;
+            }
+            
+            // Show loading state
+            document.getElementById('storeSelectionMessage').style.display = 'none';
+            document.getElementById('predictionsSection').style.display = 'block';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('predictionsTable').innerHTML = '';
+            document.getElementById('summaryCards').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/refill-predictions?storeId=${storeId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                currentData = data;
+                
+                // Update user info
+                if (data.user) {
+                    const userText = data.user.firstname ? 
+                        `👤 ${data.user.firstname} ${data.user.lastname || ''}` : 
+                        '👤 User Dashboard';
+                    document.getElementById('user-info').textContent = userText;
+                }
+                
+                // Hide loading
+                document.getElementById('loadingIndicator').style.display = 'none';
+                
+                // Update section title with store info
+                if (data.storeInfo) {
+                    document.getElementById('sectionTitle').textContent = 
+                        `Refill Predictions - ${data.storeInfo.StoreName || 'Store ' + storeId}`;
+                    document.getElementById('sectionSubtitle').textContent = 
+                        `Patients with active prescriptions and remaining repeats`;
+                }
+                
+                // Display summary cards
+                displaySummaryCards(data.summary);
+                
+                // Display predictions table
+                displayPredictionsTable(data.predictions);
+                
+                // Show export button if we have data
+                document.getElementById('exportBtn').style.display = data.predictions && data.predictions.length > 0 ? 'inline-block' : 'none';
+                
+            } catch (error) {
+                console.error('Error loading predictions:', error);
+                document.getElementById('loadingIndicator').style.display = 'none';
+                showError('Failed to load refill predictions: ' + error.message);
+            }
+        }
+
+        function displaySummaryCards(summary) {
+            const summaryHTML = `
+                <div class="card">
+                    <h3>Total Predictions</h3>
+                    <div class="number">${summary.totalPredictions || 0}</div>
+                    <div class="description">Patients needing refills in next 30 days</div>
+                </div>
+                <div class="card">
+                    <h3>Due Today</h3>
+                    <div class="number urgency-due-today">${summary.dueToday || 0}</div>
+                    <div class="description">Immediate attention required</div>
+                </div>
+                <div class="card">
+                    <h3>Due This Week</h3>
+                    <div class="number urgency-due-this-week">${summary.dueThisWeek || 0}</div>
+                    <div class="description">Prepare for upcoming refills</div>
+                </div>
+                <div class="card">
+                    <h3>Due This Month</h3>
+                    <div class="number urgency-due-next-week">${summary.dueThisMonth || 0}</div>
+                    <div class="description">Monthly planning horizon</div>
+                </div>
+                <div class="card">
+                    <h3>Unique Patients</h3>
+                    <div class="number">${summary.uniquePatients || 0}</div>
+                    <div class="description">Patients with pending refills</div>
+                </div>
+            `;
+            
+            document.getElementById('summaryCards').innerHTML = summaryHTML;
+            document.getElementById('summaryCards').style.display = 'grid';
+        }
+
+        function displayPredictionsTable(predictions) {
+            if (!predictions || predictions.length === 0) {
+                document.getElementById('predictionsTable').innerHTML = `
+                    <div class="no-data">
+                        <h3>📋 No Predictions Available</h3>
+                        <p>No patients with active prescriptions and remaining repeats found for this store.</p>
+                        <p>This could mean:</p>
+                        <ul style="text-align: left; max-width: 400px; margin: 1rem auto;">
+                            <li>All patients have completed their repeat prescriptions</li>
+                            <li>No recent dispensing activity with remaining repeats</li>
+                            <li>Store may not have configured patient data</li>
+                        </ul>
+                    </div>
+                `;
+                return;
+            }
+
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient ID</th>
+                            <th>Medication</th>
+                            <th>Brand</th>
+                            <th>Last Dispense</th>
+                            <th>Predicted Refill</th>
+                            <th>Days Until Due</th>
+                            <th>Repeats Left</th>
+                            <th>Contact Email</th>
+                            <th>Urgency</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${predictions.map(pred => `
+                            <tr>
+                                <td><span class="patient-id">${pred.PatientId || 'N/A'}</span></td>
+                                <td><strong>${pred.Drugname || 'N/A'}</strong></td>
+                                <td>${pred.BrandName || 'N/A'}</td>
+                                <td>${formatDate(pred.LastDispenseDate)}</td>
+                                <td><strong>${formatDate(pred.PredictedRefillDate)}</strong></td>
+                                <td>${pred.DaysUntilDue} days</td>
+                                <td>${pred.RepeatsRemaining}/${pred.TotalRepeats}</td>
+                                <td><a href="mailto:${pred.ContactEmail}" class="email-link">${pred.ContactEmail || 'N/A'}</a></td>
+                                <td><span class="urgency-badge badge-${pred.Urgency.toLowerCase().replace(/ /g, '-')}">${pred.Urgency}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('predictionsTable').innerHTML = tableHTML;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+        }
+
+        function exportPredictions() {
+            if (!currentData || !currentData.predictions || currentData.predictions.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const headers = ['Patient ID', 'Medication', 'Brand', 'Last Dispense', 'Predicted Refill', 'Days Until Due', 'Repeats Remaining', 'Total Repeats', 'Contact Email', 'Urgency'];
+            const csvContent = [
+                headers.join(','),
+                ...currentData.predictions.map(pred => [
+                    `"${pred.PatientId || ''}"`,
+                    `"${pred.Drugname || ''}"`,
+                    `"${pred.BrandName || ''}"`,
+                    `"${pred.LastDispenseDate || ''}"`,
+                    `"${pred.PredictedRefillDate || ''}"`,
+                    pred.DaysUntilDue || '',
+                    pred.RepeatsRemaining || '',
+                    pred.TotalRepeats || '',
+                    `"${pred.ContactEmail || ''}"`,
+                    `"${pred.Urgency || ''}"`
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const storeId = document.getElementById('storeSelect').value;
+            const storeName = document.getElementById('storeSelect').selectedOptions[0]?.textContent.split(' (')[0] || `Store-${storeId}`;
+            const today = new Date().toISOString().split('T')[0];
+            
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `refill-predictions-${storeName.replace(/[^a-zA-Z0-9]/g, '-')}-${today}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        // Handle store selection change
+        document.getElementById('storeSelect').addEventListener('change', function() {
+            if (this.value) {
+                document.getElementById('storeSelectionMessage').style.display = 'none';
+            } else {
+                document.getElementById('storeSelectionMessage').style.display = 'block';
+                document.getElementById('predictionsSection').style.display = 'none';
+                document.getElementById('summaryCards').style.display = 'none';
+                document.getElementById('exportBtn').style.display = 'none';
+            }
+        });
+
+        // Load initial data when page loads
+        window.addEventListener('load', loadUserInfo);
+    </script>
+</body>
+</html>

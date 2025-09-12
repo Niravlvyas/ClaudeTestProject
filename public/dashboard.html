@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DataX System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .logout-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .welcome-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .welcome-section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-section p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 1rem 0;
+        }
+
+        .quick-actions {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+        }
+
+        .quick-actions h3 {
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .user-details {
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .user-details table {
+            width: 100%;
+        }
+
+        .user-details td {
+            padding: 0.5rem 0;
+            color: #666;
+        }
+
+        .user-details td:first-child {
+            font-weight: 600;
+            color: #444;
+            width: 150px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-inactive {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>DataX System</h1>
+            <div class="user-section">
+                <span class="user-info" id="userDisplay">Welcome</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="welcome-section">
+            <h2>Welcome to DataX Dashboard</h2>
+            <p>Manage your data configuration and system settings from this central dashboard.</p>
+            
+            <div class="user-details">
+                <table>
+                    <tr>
+                        <td>Username:</td>
+                        <td id="username">-</td>
+                    </tr>
+                    <tr>
+                        <td>User ID:</td>
+                        <td id="userId">-</td>
+                    </tr>
+                    <tr>
+                        <td>Email:</td>
+                        <td id="email">-</td>
+                    </tr>
+                    <tr>
+                        <td>Status:</td>
+                        <td id="status">-</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <h3>Database Status</h3>
+                <p>SQL Server connection is active</p>
+                <div class="card-value">Online</div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">🏢</div>
+                <h3>Pharmacies</h3>
+                <p>Total registered pharmacies in the system</p>
+                <div class="card-value" id="pharmacyCount">Loading...</div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">👥</div>
+                <h3>System Users</h3>
+                <p>Active users in the system</p>
+                <div class="card-value" id="userCount">Loading...</div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">⚙️</div>
+                <h3>Configurations</h3>
+                <p>System configuration entries</p>
+                <div class="card-value" id="configCount">Loading...</div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <h3>Quick Actions</h3>
+            <div class="action-buttons">
+                <button class="action-btn" onclick="viewPharmacies()">View Pharmacies</button>
+                <button class="action-btn" onclick="viewUsers()">Manage Users</button>
+                <button class="action-btn" onclick="viewExtractions()">Extraction Status</button>
+                <button class="action-btn" onclick="viewReports()">Reports</button>
+                <button class="action-btn" onclick="viewPatientAdherence()">Patient Adherence</button>
+                <button class="action-btn" onclick="viewRefillPredictions()">🔮 Refill Predictions</button>
+                <button class="action-btn" onclick="openSupportChat()">🤖 Support Assistant</button>
+                <button class="action-btn" onclick="viewSettings()">Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/dashboard-data');
+                const data = await response.json();
+                
+                if (data.user) {
+                    document.getElementById('userDisplay').textContent = `Welcome, ${data.user.username}`;
+                    document.getElementById('username').textContent = data.user.username || '-';
+                    document.getElementById('userId').textContent = data.user.userId || '-';
+                    document.getElementById('email').textContent = data.user.email || '-';
+                    
+                    const statusEl = document.getElementById('status');
+                    if (data.user.isActive) {
+                        statusEl.innerHTML = '<span class="status-badge status-active">Active</span>';
+                    } else {
+                        statusEl.innerHTML = '<span class="status-badge status-inactive">Inactive</span>';
+                    }
+                }
+                
+                if (data.stats) {
+                    document.getElementById('pharmacyCount').textContent = data.stats.pharmacies || '0';
+                    document.getElementById('userCount').textContent = data.stats.users || '0';
+                    document.getElementById('configCount').textContent = data.stats.configs || '0';
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        function viewPharmacies() {
+            window.location.href = '/pharmacies';
+        }
+
+        function viewUsers() {
+            alert('User management feature coming soon!');
+        }
+
+        function viewExtractions() {
+            alert('Extraction status feature coming soon!');
+        }
+
+        function viewReports() {
+            window.location.href = '/analytics';
+        }
+
+        function viewPatientAdherence() {
+            window.location.href = '/patient-adherence';
+        }
+
+        function viewRefillPredictions() {
+            window.location.href = '/refill-predictions';
+        }
+
+        function openSupportChat() {
+            window.location.href = '/support-chat';
+        }
+
+        function viewSettings() {
+            alert('Settings feature coming soon!');
+        }
+
+        window.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>
