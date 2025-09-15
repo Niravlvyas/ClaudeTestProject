@@ -1,13 +1,13 @@
 const nodemailer = require('nodemailer');
 
-// Email configuration for yourgrassmower.com.au
+// Email configuration - REPLACE WITH YOUR ACTUAL SMTP SETTINGS
 const emailConfig = {
-    host: 'mail.yourgrassmower.com.au',
+    host: 'smtp.example.com',
     port: 465,
     secure: true, // true for 465, false for other ports
     auth: {
-        user: 'noreply@yourgrassmower.com.au',
-        pass: 'n0r#ply@2025'
+        user: 'your-email@example.com',
+        pass: 'your-password-here'
     },
     tls: {
         // Do not fail on invalid certs
@@ -35,7 +35,7 @@ async function sendEmail(mailOptions) {
     try {
         // Set default from address if not provided
         if (!mailOptions.from) {
-            mailOptions.from = '"DataX System" <noreply@yourgrassmower.com.au>';
+            mailOptions.from = '"DataX System" <noreply@example.com>';
         }
 
         // Send mail with defined transport object
@@ -63,7 +63,7 @@ async function sendEmail(mailOptions) {
 // Test email function
 async function sendTestEmail(recipientEmail, subject, message) {
     const mailOptions = {
-        from: '"DataX Test System" <noreply@yourgrassmower.com.au>',
+        from: '"DataX Test System" <noreply@example.com>',
         to: recipientEmail,
         subject: subject || 'Test Email from DataX System',
         text: message || 'This is a test email from the DataX system.',
@@ -81,9 +81,9 @@ async function sendTestEmail(recipientEmail, subject, message) {
                     <div style="background: white; padding: 15px; border-radius: 5px;">
                         <h3 style="color: #667eea; margin-top: 0;">Email Configuration Details:</h3>
                         <ul style="color: #666;">
-                            <li>SMTP Server: mail.yourgrassmower.com.au</li>
+                            <li>SMTP Server: smtp.example.com</li>
                             <li>Port: 465 (SSL/TLS)</li>
-                            <li>From: noreply@yourgrassmower.com.au</li>
+                            <li>From: noreply@example.com</li>
                             <li>Sent: ${new Date().toLocaleString()}</li>
                         </ul>
                     </div>
