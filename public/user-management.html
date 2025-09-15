@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - DataX System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .logout-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .header-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .header-section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-box input {
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            min-width: 300px;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .users-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .table-header h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .super-admin {
+            background: #dc3545;
+            color: white;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: #333;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.95rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .actions-bar {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .search-box input {
+                min-width: auto;
+            }
+            
+            table {
+                font-size: 0.85rem;
+            }
+            
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>DataX System - User Management</h1>
+            <div class="user-section">
+                <div class="nav-links">
+                    <a href="/dashboard" class="nav-link">Dashboard</a>
+                    <a href="/user-management" class="nav-link">User Management</a>
+                </div>
+                <span class="user-info" id="userDisplay">Welcome</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header-section">
+            <h2>User Management</h2>
+            <p>Manage system users, roles, and permissions</p>
+        </div>
+
+        <div class="actions-bar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search users by name, email, or username...">
+            </div>
+            <button class="btn btn-primary" onclick="showCreateModal()">
+                ➕ Create New User
+            </button>
+        </div>
+
+        <div class="users-table">
+            <div class="table-header">
+                <h3>System Users</h3>
+                <div id="userCount">Loading users...</div>
+            </div>
+            
+            <div class="loading" id="loadingIndicator">
+                <p>Loading users...</p>
+            </div>
+            
+            <table id="usersTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New User</h3>
+                <span class="close" onclick="closeModal('createModal')">&times;</span>
+            </div>
+            <form id="createUserForm">
+                <div class="modal-body">
+                    <div id="createError" class="error" style="display: none;"></div>
+                    
+                    <div class="form-group">
+                        <label for="createUsername">Username *</label>
+                        <input type="text" id="createUsername" name="username" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createPassword">Password *</label>
+                        <input type="password" id="createPassword" name="password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createEmail">Email *</label>
+                        <input type="email" id="createEmail" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createFirstname">First Name *</label>
+                        <input type="text" id="createFirstname" name="firstname" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createLastname">Last Name *</label>
+                        <input type="text" id="createLastname" name="lastname" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createRole">Role *</label>
+                        <select id="createRole" name="roleId" required>
+                            <option value="">Select a role...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit User</h3>
+                <span class="close" onclick="closeModal('editModal')">&times;</span>
+            </div>
+            <form id="editUserForm">
+                <div class="modal-body">
+                    <div id="editError" class="error" style="display: none;"></div>
+                    
+                    <input type="hidden" id="editUserId" name="userId">
+                    
+                    <div class="form-group">
+                        <label for="editUsername">Username</label>
+                        <input type="text" id="editUsername" name="username" readonly style="background: #f8f9fa;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editEmail">Email *</label>
+                        <input type="email" id="editEmail" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFirstname">First Name *</label>
+                        <input type="text" id="editFirstname" name="firstname" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editLastname">Last Name *</label>
+                        <input type="text" id="editLastname" name="lastname" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editRole">Role *</label>
+                        <select id="editRole" name="roleId" required>
+                            <option value="">Select a role...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editStatus">Status *</label>
+                        <select id="editStatus" name="status" required>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+        let roles = [];
+        let currentUser = null;
+
+        // Load data on page load
+        window.addEventListener('DOMContentLoaded', async function() {
+            await loadRoles();
+            await loadUsers();
+        });
+
+        async function loadUsers() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('usersTable').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                users = data.users;
+                currentUser = data.currentUser;
+                
+                document.getElementById('userDisplay').textContent = `Welcome, ${currentUser.username}`;
+                document.getElementById('userCount').textContent = `${users.length} users total`;
+                
+                renderUsers(users);
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('userCount').textContent = 'Error loading users';
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('usersTable').style.display = 'table';
+            }
+        }
+
+        async function loadRoles() {
+            try {
+                const response = await fetch('/api/roles');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                roles = data.roles;
+                populateRoleSelects();
+                
+            } catch (error) {
+                console.error('Error loading roles:', error);
+            }
+        }
+
+        function populateRoleSelects() {
+            const createRoleSelect = document.getElementById('createRole');
+            const editRoleSelect = document.getElementById('editRole');
+            
+            [createRoleSelect, editRoleSelect].forEach(select => {
+                // Clear existing options except first
+                select.innerHTML = '<option value="">Select a role...</option>';
+                
+                roles.forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role.RoleID;
+                    option.textContent = `${role.RoleName} - ${role.RoleDescription}`;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function renderUsers(usersToRender) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            
+            usersToRender.forEach(user => {
+                const row = document.createElement('tr');
+                
+                const statusClass = user.Status ? 'status-active' : 'status-inactive';
+                const statusText = user.Status ? 'Active' : 'Inactive';
+                
+                const roleClass = user.IsSuperAdmin ? 'super-admin' : '';
+                const roleText = user.RoleName || 'No Role';
+                
+                const createdDate = user.CreatedDate ? new Date(user.CreatedDate).toLocaleDateString() : 'N/A';
+                
+                row.innerHTML = `
+                    <td>
+                        <strong>${user.Firstname} ${user.Lastname}</strong>
+                        ${user.IsSuperAdmin ? '<br><small style="color: #dc3545; font-weight: 600;">SUPER ADMIN</small>' : ''}
+                    </td>
+                    <td>${user.Username}</td>
+                    <td>${user.Email}</td>
+                    <td><span class="role-badge ${roleClass}">${roleText}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${createdDate}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-primary" onclick="editUser('${user.Userid}')">Edit</button>
+                            <button class="btn btn-sm btn-secondary" onclick="viewPermissions('${user.Username}')">Permissions</button>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const filteredUsers = users.filter(user => 
+                user.Firstname.toLowerCase().includes(searchTerm) ||
+                user.Lastname.toLowerCase().includes(searchTerm) ||
+                user.Username.toLowerCase().includes(searchTerm) ||
+                user.Email.toLowerCase().includes(searchTerm) ||
+                (user.RoleName && user.RoleName.toLowerCase().includes(searchTerm))
+            );
+            renderUsers(filteredUsers);
+        });
+
+        function showCreateModal() {
+            document.getElementById('createModal').style.display = 'block';
+            document.getElementById('createUserForm').reset();
+            document.getElementById('createError').style.display = 'none';
+        }
+
+        function editUser(userId) {
+            const user = users.find(u => u.Userid === userId);
+            if (!user) return;
+            
+            document.getElementById('editUserId').value = user.Userid;
+            document.getElementById('editUsername').value = user.Username;
+            document.getElementById('editEmail').value = user.Email;
+            document.getElementById('editFirstname').value = user.Firstname;
+            document.getElementById('editLastname').value = user.Lastname;
+            document.getElementById('editRole').value = user.RoleID || '';
+            document.getElementById('editStatus').value = user.Status ? 'Active' : 'Inactive';
+            
+            document.getElementById('editError').style.display = 'none';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        async function viewPermissions(username) {
+            try {
+                const response = await fetch(`/api/users/${username}/permissions`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                let permissionsList = data.permissions.length > 0 
+                    ? data.permissions.map(p => `• ${p.PermissionName} (${p.Module})`).join('\n')
+                    : 'No permissions assigned';
+                
+                alert(`Permissions for ${username}:\n\n${permissionsList}`);
+                
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                alert('Error loading user permissions');
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Create user form submission
+        document.getElementById('createUserForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const userData = Object.fromEntries(formData);
+            
+            document.getElementById('createError').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to create user');
+                }
+                
+                closeModal('createModal');
+                await loadUsers();
+                alert('User created successfully!');
+                
+            } catch (error) {
+                console.error('Error creating user:', error);
+                document.getElementById('createError').textContent = error.message;
+                document.getElementById('createError').style.display = 'block';
+            }
+        });
+
+        // Edit user form submission
+        document.getElementById('editUserForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const userData = Object.fromEntries(formData);
+            const userId = userData.userId;
+            
+            delete userData.userId;
+            delete userData.username; // Remove readonly field
+            
+            document.getElementById('editError').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to update user');
+                }
+                
+                closeModal('editModal');
+                await loadUsers();
+                alert('User updated successfully!');
+                
+            } catch (error) {
+                console.error('Error updating user:', error);
+                document.getElementById('editError').textContent = error.message;
+                document.getElementById('editError').style.display = 'block';
+            }
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

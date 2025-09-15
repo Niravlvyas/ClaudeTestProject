@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - DataX System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .page-header h2 {
+            color: #333;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            color: #666;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-card h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+        }
+
+        .table-header h3 {
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .filters h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+        }
+
+        .filter-item label {
+            margin-bottom: 0.25rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .filter-item select,
+        .filter-item input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .btn-filter {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>DataX Analytics Dashboard</h1>
+            <div class="user-section">
+                <span class="user-info" id="userDisplay">Welcome</span>
+                <a href="/dashboard" class="nav-btn">Dashboard</a>
+                <a href="/pharmacies" class="nav-btn">Pharmacies</a>
+                <a href="/logout" class="nav-btn">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>📊 Pharmaceutical Analytics</h2>
+            <p>Comprehensive analysis of dispensing data and patient demographics</p>
+        </div>
+
+        <div class="loading active" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Loading analytics data...</p>
+        </div>
+
+        <div class="filters" id="filtersSection" style="display: none;">
+            <h3>🔍 Filters</h3>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label>Date Range</label>
+                    <select id="dateRange">
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last year</option>
+                        <option value="all" selected>All time</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>Store</label>
+                    <select id="storeFilter">
+                        <option value="all">All Stores</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>Drug Schedule</label>
+                    <select id="scheduleFilter">
+                        <option value="all">All Schedules</option>
+                    </select>
+                </div>
+                <button class="btn-filter" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsSection" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-icon">💊</div>
+                <div class="stat-value" id="totalDispenses">-</div>
+                <div class="stat-label">Total Dispenses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value" id="totalPatients">-</div>
+                <div class="stat-label">Total Patients</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-value" id="totalValue">-</div>
+                <div class="stat-label">Total Drug Value</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏪</div>
+                <div class="stat-value" id="totalStores">-</div>
+                <div class="stat-label">Active Stores</div>
+            </div>
+        </div>
+
+        <div class="charts-grid" id="chartsSection" style="display: none;">
+            <div class="chart-card">
+                <h3>📈 Daily Dispensing Trends</h3>
+                <div class="chart-container">
+                    <canvas id="dailyTrendsChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>🥧 Top Drug Categories</h3>
+                <div class="chart-container">
+                    <canvas id="drugCategoriesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>📊 Store Performance</h3>
+                <div class="chart-container">
+                    <canvas id="storePerformanceChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>👥 Patient Demographics</h3>
+                <div class="chart-container">
+                    <canvas id="demographicsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-table">
+            <div class="table-header">
+                <h3>🔝 Top Dispensed Medications</h3>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Drug Name</th>
+                        <th>Brand Name</th>
+                        <th>Total Dispensed</th>
+                        <th>Total Value</th>
+                        <th>Avg Price</th>
+                    </tr>
+                </thead>
+                <tbody id="topDrugsTable">
+                    <tr>
+                        <td colspan="6" class="loading">
+                            <div class="spinner"></div>
+                            Loading analytics data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let analyticsData = {};
+
+        async function loadAnalytics() {
+            try {
+                // Show loading indicator
+                document.getElementById('loadingIndicator').classList.add('active');
+                document.getElementById('filtersSection').style.display = 'none';
+                document.getElementById('statsSection').style.display = 'none';
+                document.getElementById('chartsSection').style.display = 'none';
+                
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+                
+                if (data.user) {
+                    document.getElementById('userDisplay').textContent = `Welcome, ${data.user.username}`;
+                }
+                
+                analyticsData = data;
+                updateDashboard();
+                loadFilters();
+                
+                // Hide loading indicator and show content
+                document.getElementById('loadingIndicator').classList.remove('active');
+                document.getElementById('filtersSection').style.display = 'block';
+                document.getElementById('statsSection').style.display = 'grid';
+                document.getElementById('chartsSection').style.display = 'grid';
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                document.getElementById('loadingIndicator').classList.remove('active');
+                alert('Error loading analytics data');
+            }
+        }
+
+        function updateDashboard() {
+            // Update summary stats
+            document.getElementById('totalDispenses').textContent = formatNumber(analyticsData.summary?.totalDispenses || 0);
+            document.getElementById('totalPatients').textContent = formatNumber(analyticsData.summary?.totalPatients || 0);
+            document.getElementById('totalValue').textContent = formatCurrency(analyticsData.summary?.totalValue || 0);
+            document.getElementById('totalStores').textContent = formatNumber(analyticsData.summary?.totalStores || 0);
+
+            // Create charts
+            createDailyTrendsChart(analyticsData.dailyTrends || []);
+            createDrugCategoriesChart(analyticsData.drugCategories || []);
+            createStorePerformanceChart(analyticsData.storePerformance || []);
+            createDemographicsChart(analyticsData.demographics || {});
+            
+            // Update top drugs table
+            updateTopDrugsTable(analyticsData.topDrugs || []);
+        }
+
+        function createDailyTrendsChart(data) {
+            const ctx = document.getElementById('dailyTrendsChart');
+            if (charts.dailyTrends) charts.dailyTrends.destroy();
+            
+            charts.dailyTrends = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Daily Dispenses',
+                        data: data.map(d => d.count),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function createDrugCategoriesChart(data) {
+            const ctx = document.getElementById('drugCategoriesChart');
+            if (charts.drugCategories) charts.drugCategories.destroy();
+            
+            charts.drugCategories = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.category),
+                    datasets: [{
+                        data: data.map(d => d.count),
+                        backgroundColor: [
+                            '#667eea', '#764ba2', '#f093fb', '#f5576c', 
+                            '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function createStorePerformanceChart(data) {
+            const ctx = document.getElementById('storePerformanceChart');
+            if (charts.storePerformance) charts.storePerformance.destroy();
+            
+            charts.storePerformance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => `Store ${d.storeId}`),
+                    datasets: [{
+                        label: 'Total Dispenses',
+                        data: data.map(d => d.count),
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function createDemographicsChart(data) {
+            const ctx = document.getElementById('demographicsChart');
+            if (charts.demographics) charts.demographics.destroy();
+            
+            charts.demographics = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Male', 'Female'],
+                    datasets: [{
+                        label: 'Patient Count',
+                        data: [data.male || 0, data.female || 0],
+                        backgroundColor: ['#4facfe', '#f093fb']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updateTopDrugsTable(data) {
+            const tbody = document.getElementById('topDrugsTable');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">No data available</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map((drug, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${drug.drugName}</td>
+                    <td>${drug.brandName || '-'}</td>
+                    <td>${formatNumber(drug.totalDispensed)}</td>
+                    <td>${formatCurrency(drug.totalValue)}</td>
+                    <td>${formatCurrency(drug.avgPrice)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function loadFilters() {
+            // Load store filter options
+            if (analyticsData.stores) {
+                const storeFilter = document.getElementById('storeFilter');
+                storeFilter.innerHTML = '<option value="all">All Stores</option>' +
+                    analyticsData.stores.map(store => {
+                        const storeName = (store.storeName || '').replace(/Chemist Discount Centre/gi, 'CDC');
+                        return `<option value="${store.storeId}">${storeName} - ${store.storeId}</option>`;
+                    }).join('');
+            }
+            
+            // Load schedule filter options
+            if (analyticsData.schedules) {
+                const scheduleFilter = document.getElementById('scheduleFilter');
+                scheduleFilter.innerHTML = '<option value="all">All Schedules</option>' +
+                    analyticsData.schedules.map(schedule => `<option value="${schedule}">${schedule}</option>`).join('');
+            }
+        }
+
+        function applyFilters() {
+            const dateRange = document.getElementById('dateRange').value;
+            const storeId = document.getElementById('storeFilter').value;
+            const schedule = document.getElementById('scheduleFilter').value;
+            
+            // Show loading
+            document.getElementById('topDrugsTable').innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div>Applying filters...</td></tr>';
+            
+            // Reload analytics with filters
+            const params = new URLSearchParams({
+                dateRange,
+                storeId: storeId === 'all' ? '' : storeId,
+                schedule: schedule === 'all' ? '' : schedule
+            });
+            
+            fetch(`/api/analytics?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    analyticsData = data;
+                    updateDashboard();
+                })
+                .catch(error => {
+                    console.error('Error applying filters:', error);
+                });
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-AU', { 
+                style: 'currency', 
+                currency: 'AUD' 
+            }).format(num);
+        }
+
+        window.addEventListener('DOMContentLoaded', loadAnalytics);
+    </script>
+</body>
+</html>

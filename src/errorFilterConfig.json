@@ -1,0 +1,32 @@
+{
+  "ignoredErrors": [
+    {
+      "pattern": "SQLite error no such table: Department_POS",
+      "description": "Department_POS table is not used in current implementation",
+      "enabled": true
+    },
+    {
+      "pattern": "no such table: Department_POS",
+      "description": "Alternative pattern for Department_POS table error",
+      "enabled": true
+    },
+    {
+      "pattern": "Bulk Copy Failed",
+      "description": "Alternative pattern for Bulk Copy Failed",
+      "enabled": true
+    }
+  ],
+  "ignoredPatterns": [
+    {
+      "regex": "^.*no such table: Department_.*$",
+      "description": "Ignore all Department-related table errors",
+      "enabled": false
+    }
+  ],
+  "logIgnoredErrors": false,
+  "settings": {
+    "useRegexMatching": true,
+    "caseSensitive": false,
+    "logLevel": "warn"
+  }
+}

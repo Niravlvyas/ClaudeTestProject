@@ -177,6 +177,7 @@
             font-size: 0.9rem;
         }
 
+        .urgency-overdue { color: #721c24; font-weight: bold; }
         .urgency-due-today { color: #dc3545; }
         .urgency-due-tomorrow { color: #fd7e14; }
         .urgency-due-this-week { color: #ffc107; }
@@ -229,6 +230,12 @@
             white-space: nowrap;
         }
 
+        .badge-overdue {
+            background: #721c24;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
         .badge-due-today {
             background: #f8d7da;
             color: #721c24;
@@ -258,6 +265,27 @@
             text-align: center;
             padding: 3rem;
             color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
         .error {
@@ -360,7 +388,16 @@
                         <option value="">Select a store to view predictions...</option>
                     </select>
                 </div>
-                <button class="btn" onclick="loadPredictions()">Generate Predictions</button>
+                <div class="filter-group">
+                    <label for="daysFilter">Prediction Window</label>
+                    <select id="daysFilter">
+                        <option value="3">Next 3 days (High Priority)</option>
+                        <option value="7">Next 7 days</option>
+                        <option value="14">Next 2 weeks</option>
+                        <option value="30">Next 30 days (All)</option>
+                    </select>
+                </div>
+                <button class="btn" id="generateBtn" onclick="loadPredictions()">Generate Predictions</button>
                 <button class="btn" onclick="exportPredictions()" id="exportBtn" style="display: none;">Export to CSV</button>
             </div>
         </div>
@@ -378,7 +415,9 @@
                 <p id="sectionSubtitle">Patients likely to need refills based on 30-day cycles</p>
             </div>
             <div id="loadingIndicator" class="loading">
-                <p>🔄 Analyzing prescription patterns...</p>
+                <div class="spinner"></div>
+                <p>Analyzing prescription patterns...</p>
+                <p style="font-size: 0.9rem; color: #999; margin-top: 0.5rem;">Please wait while we generate predictions...</p>
             </div>
             <div id="errorMessage" class="error" style="display: none;"></div>
             <div id="predictionsTable" class="predictions-table"></div>
@@ -423,11 +462,17 @@
         // Load predictions for selected store
         async function loadPredictions() {
             const storeId = document.getElementById('storeSelect').value;
+            const days = document.getElementById('daysFilter').value;
+            const generateBtn = document.getElementById('generateBtn');
             
             if (!storeId) {
                 alert('Please select a store first');
                 return;
             }
+            
+            // Disable button and show loading state
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Loading...';
             
             // Show loading state
             document.getElementById('storeSelectionMessage').style.display = 'none';
@@ -438,7 +483,7 @@
             document.getElementById('summaryCards').style.display = 'none';
             
             try {
-                const response = await fetch(`/api/refill-predictions?storeId=${storeId}`);
+                const response = await fetch(`/api/refill-predictions?storeId=${storeId}&days=${days}`);
                 const data = await response.json();
                 
                 if (data.error) {
@@ -475,19 +520,44 @@
                 // Show export button if we have data
                 document.getElementById('exportBtn').style.display = data.predictions && data.predictions.length > 0 ? 'inline-block' : 'none';
                 
+                // Re-enable button
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Predictions';
+                
             } catch (error) {
                 console.error('Error loading predictions:', error);
                 document.getElementById('loadingIndicator').style.display = 'none';
                 showError('Failed to load refill predictions: ' + error.message);
+                
+                // Re-enable button on error
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Predictions';
+            } finally {
+                // Always re-enable button after 10 seconds as a failsafe
+                setTimeout(() => {
+                    const btn = document.getElementById('generateBtn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Generate Predictions';
+                    }
+                }, 10000);
             }
         }
 
         function displaySummaryCards(summary) {
+            const days = summary.selectedDays || 3;
+            const periodLabel = days == 1 ? 'day' : 'days';
+            
             const summaryHTML = `
                 <div class="card">
                     <h3>Total Predictions</h3>
                     <div class="number">${summary.totalPredictions || 0}</div>
-                    <div class="description">Patients needing refills in next 30 days</div>
+                    <div class="description">Patients needing refills in next ${days} ${periodLabel}</div>
+                </div>
+                <div class="card">
+                    <h3>Overdue</h3>
+                    <div class="number urgency-overdue">${summary.overdue || 0}</div>
+                    <div class="description">Should have refilled already</div>
                 </div>
                 <div class="card">
                     <h3>Due Today</h3>
@@ -500,9 +570,9 @@
                     <div class="description">Prepare for upcoming refills</div>
                 </div>
                 <div class="card">
-                    <h3>Due This Month</h3>
-                    <div class="number urgency-due-next-week">${summary.dueThisMonth || 0}</div>
-                    <div class="description">Monthly planning horizon</div>
+                    <h3>In Selected Period</h3>
+                    <div class="number urgency-due-next-week">${summary.dueInSelectedPeriod || 0}</div>
+                    <div class="description">Next ${days} ${periodLabel} forecast</div>
                 </div>
                 <div class="card">
                     <h3>Unique Patients</h3>

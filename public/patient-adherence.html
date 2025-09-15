@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Medication Adherence - DataX System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .page-header h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+
+        .filter-group label {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .filter-btn {
+            padding: 0.7rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .compliance-excellent { color: #28a745; }
+        .compliance-good { color: #17a2b8; }
+        .compliance-warning { color: #ffc107; }
+        .compliance-poor { color: #dc3545; }
+        .compliance-rate { color: #667eea; }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .analysis-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .analysis-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .analysis-content {
+            padding: 1.5rem;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-bottom: 1rem;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .table-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 2rem;
+            font-style: italic;
+        }
+
+        .compliance-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .compliance-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .patient-id {
+            font-family: monospace;
+            font-size: 0.9rem;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .alert-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #856404;
+        }
+
+        .chronic-indicator {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #e7f3ff;
+            color: #0066cc;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <h3 style="color: #667eea; margin-bottom: 0.5rem;">Loading Data...</h3>
+            <p style="color: #666;">Processing patient adherence analytics</p>
+        </div>
+    </div>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>DataX System - Patient Medication Adherence</h1>
+            <div class="user-section">
+                <span class="user-info" id="userDisplay">Welcome</span>
+                <a href="/dashboard" class="nav-btn">Dashboard</a>
+                <a href="/analytics" class="nav-btn">Analytics</a>
+                <a href="/logout" class="nav-btn">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h2>🏥 Patient Medication Adherence Analysis</h2>
+            <p>Analyze chronic disease patient behavior and medication compliance patterns</p>
+        </div>
+
+        <div class="filters">
+            <div class="filter-row">
+                <div class="filter-group" style="min-width: 250px;">
+                    <label for="storeFilter">Store <span style="color: red;">*</span></label>
+                    <select id="storeFilter" onchange="onStoreChange()">
+                        <option value="">Select a Store (Required)</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="drugFilter">Medication</label>
+                    <input type="text" id="drugFilter" placeholder="Search medication...">
+                </div>
+                <div class="filter-group">
+                    <label for="dateRangeFilter">Date Range</label>
+                    <select id="dateRangeFilter">
+                        <option value="all">All Time</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="180">Last 6 Months</option>
+                        <option value="365">Last Year</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="minRepeatsFilter">Min. Repeats</label>
+                    <select id="minRepeatsFilter">
+                        <option value="2">2+ Repeats</option>
+                        <option value="3">3+ Repeats</option>
+                        <option value="5" selected>5+ Repeats (Chronic)</option>
+                    </select>
+                </div>
+                <button class="filter-btn" onclick="applyFilters()">Apply Filters</button>
+            </div>
+        </div>
+
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-value compliance-rate" id="totalScripts">-</div>
+                <div class="stat-label">Total Scripts Analyzed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value compliance-rate" id="totalPatients">-</div>
+                <div class="stat-label">Chronic Disease Patients</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value compliance-excellent" id="fullyCompliant">-</div>
+                <div class="stat-label">Fully Compliant Scripts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value compliance-good" id="highCompliant">-</div>
+                <div class="stat-label">High Compliant Scripts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value compliance-poor" id="lowCompliant">-</div>
+                <div class="stat-label">Low Compliant Scripts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value compliance-rate" id="overallRate">-</div>
+                <div class="stat-label">Overall Compliance Rate</div>
+            </div>
+        </div>
+
+        <div class="analysis-grid">
+            <div class="analysis-card">
+                <div class="analysis-header">📊 Compliance by Repeat Number</div>
+                <div class="analysis-content">
+                    <div class="chart-container">
+                        <canvas id="complianceByRepeatChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-card">
+                <div class="analysis-header">🥧 Top Chronic Medications</div>
+                <div class="analysis-content">
+                    <div class="chart-container">
+                        <canvas id="chronicMedicationsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-card" id="storeInfoCard" style="display: none;">
+                <div class="analysis-header">🏪 Store Information</div>
+                <div class="analysis-content">
+                    <div id="storeInfoContent" style="padding: 1rem;">
+                        <h3 id="selectedStoreName" style="color: #667eea; margin-bottom: 1rem;"></h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <div class="stat-label">Store ID</div>
+                                <div class="stat-value" id="selectedStoreId" style="font-size: 1.2rem;">-</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">State</div>
+                                <div class="stat-value" id="selectedStoreState" style="font-size: 1.2rem;">-</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Unique Patients</div>
+                                <div class="stat-value" id="selectedStorePatients" style="font-size: 1.2rem;">-</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Unique Scripts</div>
+                                <div class="stat-value" id="selectedStoreScripts" style="font-size: 1.2rem;">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-card">
+                <div class="analysis-header">💊 Medication Compliance Rates</div>
+                <div class="analysis-content">
+                    <div class="chart-container">
+                        <canvas id="medicationComplianceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-table">
+            <div class="table-header">🚨 Patients with Medication Gaps</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient ID</th>
+                        <th>Medication</th>
+                        <th>Store</th>
+                        <th>Total Repeats</th>
+                        <th>Actual Repeats</th>
+                        <th>Missed Repeats</th>
+                        <th>Compliance Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="patientsWithGapsTable">
+                    <tr>
+                        <td colspan="7" class="loading">Loading patient gap analysis...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="data-table">
+            <div class="table-header">🔬 Top Medications by Compliance</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Total Scripts</th>
+                        <th>Patients</th>
+                        <th>Avg Compliance</th>
+                        <th>Fully Compliant</th>
+                        <th>Low Compliance</th>
+                        <th>Compliance Visual</th>
+                    </tr>
+                </thead>
+                <tbody id="medicationComplianceTable">
+                    <tr>
+                        <td colspan="7" class="loading">Loading medication compliance data...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="data-table">
+            <div class="table-header">💊 Chronic Medication Analysis</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Patients</th>
+                        <th>Total Dispenses</th>
+                        <th>Avg Repeats</th>
+                        <th>Long-term Scripts</th>
+                        <th>Chronic Rate</th>
+                        <th>Category</th>
+                    </tr>
+                </thead>
+                <tbody id="chronicMedicationsTable">
+                    <tr>
+                        <td colspan="7" class="loading">Loading chronic medication analysis...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let adherenceData = {};
+        let charts = {};
+        let selectedStore = null;
+
+        // Load stores on page load
+        async function loadStores() {
+            try {
+                const response = await fetch('/api/patient-adherence/stores');
+                const data = await response.json();
+                
+                const storeFilter = document.getElementById('storeFilter');
+                storeFilter.innerHTML = '<option value="">Select a Store (Required)</option>' +
+                    data.stores.map(store => 
+                        `<option value="${store.storeId}">${store.storeName} - ${store.storeId} (${store.recordCount.toLocaleString()} records)</option>`
+                    ).join('');
+                    
+                // Show initial message
+                showStoreSelectionMessage();
+            } catch (error) {
+                console.error('Error loading stores:', error);
+            }
+        }
+
+        function showStoreSelectionMessage() {
+            // Hide all data sections
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.style.opacity = '0.5';
+            });
+            document.querySelectorAll('.analysis-card').forEach(card => {
+                card.style.display = 'none';
+            });
+            document.querySelectorAll('.data-table').forEach(table => {
+                table.style.display = 'none';
+            });
+            
+            // Show message
+            const messageHtml = `
+                <div style="text-align: center; padding: 3rem; background: white; border-radius: 10px; margin: 2rem 0;">
+                    <h2 style="color: #667eea; margin-bottom: 1rem;">🏪 Please Select a Store</h2>
+                    <p style="color: #666; font-size: 1.1rem;">To view patient adherence analytics, please select a store from the dropdown above.</p>
+                    <p style="color: #999; margin-top: 1rem;">This ensures optimal performance by analyzing data for one store at a time.</p>
+                </div>
+            `;
+            
+            // Add message container if not exists
+            let messageContainer = document.getElementById('messageContainer');
+            if (!messageContainer) {
+                messageContainer = document.createElement('div');
+                messageContainer.id = 'messageContainer';
+                document.querySelector('.container').insertBefore(messageContainer, document.querySelector('.analysis-grid'));
+            }
+            messageContainer.innerHTML = messageHtml;
+        }
+
+        function hideStoreSelectionMessage() {
+            const messageContainer = document.getElementById('messageContainer');
+            if (messageContainer) {
+                messageContainer.style.display = 'none';
+            }
+            
+            // Show all data sections
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.style.opacity = '1';
+            });
+            document.querySelectorAll('.analysis-card').forEach(card => {
+                card.style.display = 'block';
+            });
+            document.querySelectorAll('.data-table').forEach(table => {
+                table.style.display = 'block';
+            });
+        }
+
+        async function onStoreChange() {
+            const storeId = document.getElementById('storeFilter').value;
+            if (!storeId) {
+                showStoreSelectionMessage();
+                return;
+            }
+            
+            selectedStore = storeId;
+            hideStoreSelectionMessage();
+            
+            // Disable controls while loading
+            document.getElementById('storeFilter').disabled = true;
+            document.getElementById('drugFilter').disabled = true;
+            document.getElementById('dateRangeFilter').disabled = true;
+            document.getElementById('minRepeatsFilter').disabled = true;
+            
+            await loadAdherenceData();
+            
+            // Re-enable controls
+            document.getElementById('storeFilter').disabled = false;
+            document.getElementById('drugFilter').disabled = false;
+            document.getElementById('dateRangeFilter').disabled = false;
+            document.getElementById('minRepeatsFilter').disabled = false;
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+        
+        async function loadAdherenceData() {
+            try {
+                showLoading();
+                if (!selectedStore) {
+                    showStoreSelectionMessage();
+                    return;
+                }
+                
+                const params = new URLSearchParams({
+                    storeId: selectedStore,
+                    drugName: document.getElementById('drugFilter').value || '',
+                    dateRange: document.getElementById('dateRangeFilter').value || 'all',
+                    minRepeats: document.getElementById('minRepeatsFilter').value || '2'
+                });
+
+                const response = await fetch(`/api/patient-adherence?${params}`);
+                const data = await response.json();
+                
+                if (data.user) {
+                    document.getElementById('userDisplay').textContent = `Welcome, ${data.user.username}`;
+                }
+                
+                adherenceData = data;
+                
+                // Check if store selection is required
+                if (data.requiresStoreSelection) {
+                    showStoreSelectionMessage();
+                    return;
+                }
+                
+                displaySummaryStats();
+                displayStoreInfo();
+                createCharts();
+                populateTables();
+                
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error loading adherence data:', error);
+                hideLoading();
+                alert('Error loading data. Please try again or select a different store.');
+            }
+        }
+
+        function displaySummaryStats() {
+            const summary = adherenceData.summary || {};
+            
+            document.getElementById('totalScripts').textContent = (summary.totalScripts || 0).toLocaleString();
+            document.getElementById('totalPatients').textContent = (summary.totalPatients || 0).toLocaleString();
+            document.getElementById('fullyCompliant').textContent = (summary.fullyCompliantScripts || 0).toLocaleString();
+            document.getElementById('highCompliant').textContent = (summary.highCompliantScripts || 0).toLocaleString();
+            document.getElementById('lowCompliant').textContent = (summary.lowCompliantScripts || 0).toLocaleString();
+            document.getElementById('overallRate').textContent = (summary.overallComplianceRate || 0).toFixed(1) + '%';
+        }
+
+        function displayStoreInfo() {
+            const storeInfo = adherenceData.storeInfo;
+            if (storeInfo) {
+                document.getElementById('storeInfoCard').style.display = 'block';
+                document.getElementById('selectedStoreName').textContent = (storeInfo.StoreName || '').replace(/Chemist Discount Centre/gi, 'CDC');
+                document.getElementById('selectedStoreId').textContent = storeInfo.StoreId;
+                document.getElementById('selectedStoreState').textContent = storeInfo.State || 'N/A';
+                document.getElementById('selectedStorePatients').textContent = (storeInfo.UniquePatients || 0).toLocaleString();
+                document.getElementById('selectedStoreScripts').textContent = (storeInfo.UniqueScripts || 0).toLocaleString();
+            }
+        }
+
+        function createCharts() {
+            createComplianceByRepeatChart();
+            createChronicMedicationsChart();
+            createMedicationComplianceChart();
+        }
+
+        function createComplianceByRepeatChart() {
+            const ctx = document.getElementById('complianceByRepeatChart').getContext('2d');
+            const data = adherenceData.complianceByRepeat || [];
+            
+            if (charts.complianceByRepeat) {
+                charts.complianceByRepeat.destroy();
+            }
+            
+            charts.complianceByRepeat = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.RepeatNo === '5+' ? 'Repeat 5+' : `Repeat ${d.RepeatNo}`),
+                    datasets: [{
+                        label: 'Total Dispenses',
+                        data: data.map(d => d.TotalDispenses),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Unique Patients',
+                        data: data.map(d => d.UniquePatients),
+                        backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                        borderColor: 'rgba(118, 75, 162, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createChronicMedicationsChart() {
+            const ctx = document.getElementById('chronicMedicationsChart').getContext('2d');
+            const data = adherenceData.chronicMedications?.slice(0, 8) || [];
+            
+            if (charts.chronicMedications) {
+                charts.chronicMedications.destroy();
+            }
+            
+            charts.chronicMedications = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.Drugname),
+                    datasets: [{
+                        data: data.map(d => d.ChronicMedicationRate),
+                        backgroundColor: [
+                            '#667eea', '#764ba2', '#f093fb', '#f5576c',
+                            '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createMedicationComplianceChart() {
+            const ctx = document.getElementById('medicationComplianceChart').getContext('2d');
+            const data = adherenceData.medicationCompliance?.slice(0, 10) || [];
+            
+            if (charts.medicationCompliance) {
+                charts.medicationCompliance.destroy();
+            }
+            
+            charts.medicationCompliance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.Drugname),
+                    datasets: [{
+                        label: 'Avg Compliance Rate (%)',
+                        data: data.map(d => d.AvgComplianceRate),
+                        backgroundColor: data.map(d => {
+                            const rate = d.AvgComplianceRate;
+                            if (rate >= 90) return 'rgba(40, 167, 69, 0.8)';
+                            if (rate >= 75) return 'rgba(23, 162, 184, 0.8)';
+                            if (rate >= 50) return 'rgba(255, 193, 7, 0.8)';
+                            return 'rgba(220, 53, 69, 0.8)';
+                        })
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function populateTables() {
+            populatePatientsWithGapsTable();
+            populateMedicationComplianceTable();
+            populateChronicMedicationsTable();
+        }
+
+        function populatePatientsWithGapsTable() {
+            const table = document.getElementById('patientsWithGapsTable');
+            const data = adherenceData.patientsWithGaps || [];
+            
+            if (data.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="loading">No patients with medication gaps found</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = data.map(patient => {
+                const complianceRate = ((patient.ActualRepeats / (patient.TotalRepeats + 1)) * 100).toFixed(1);
+                const complianceClass = complianceRate >= 75 ? 'compliance-good' : 
+                                      complianceRate >= 50 ? 'compliance-warning' : 'compliance-poor';
+                
+                return `
+                    <tr>
+                        <td><span class="patient-id">${patient.PatPharmSysID}</span></td>
+                        <td>${patient.Drugname}</td>
+                        <td>Store ${patient.StoreId}</td>
+                        <td>${patient.TotalRepeats + 1}</td>
+                        <td>${patient.ActualRepeats}</td>
+                        <td><strong class="compliance-poor">${patient.MissedRepeats}</strong></td>
+                        <td><span class="${complianceClass}">${complianceRate}%</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function populateMedicationComplianceTable() {
+            const table = document.getElementById('medicationComplianceTable');
+            const data = adherenceData.medicationCompliance || [];
+            
+            if (data.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="loading">No medication compliance data available</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = data.map(med => {
+                const complianceRate = med.AvgComplianceRate.toFixed(1);
+                const complianceClass = complianceRate >= 90 ? 'compliance-excellent' : 
+                                      complianceRate >= 75 ? 'compliance-good' :
+                                      complianceRate >= 50 ? 'compliance-warning' : 'compliance-poor';
+                
+                return `
+                    <tr>
+                        <td><strong>${med.Drugname}</strong></td>
+                        <td>${med.TotalScripts.toLocaleString()}</td>
+                        <td>${med.TotalPatients.toLocaleString()}</td>
+                        <td><span class="${complianceClass}">${complianceRate}%</span></td>
+                        <td>${med.FullyCompliant.toLocaleString()}</td>
+                        <td><span class="compliance-poor">${med.LowCompliance.toLocaleString()}</span></td>
+                        <td>
+                            <div class="compliance-bar">
+                                <div class="compliance-fill ${complianceClass.replace('compliance-', '')}" 
+                                     style="width: ${complianceRate}%; background: ${
+                                         complianceRate >= 90 ? '#28a745' : 
+                                         complianceRate >= 75 ? '#17a2b8' :
+                                         complianceRate >= 50 ? '#ffc107' : '#dc3545'
+                                     }"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function populateChronicMedicationsTable() {
+            const table = document.getElementById('chronicMedicationsTable');
+            const data = adherenceData.chronicMedications || [];
+            
+            if (data.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="loading">No chronic medication data available</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = data.map(med => {
+                const chronicRate = med.ChronicMedicationRate.toFixed(1);
+                const avgRepeats = med.AvgTotalRepeats.toFixed(1);
+                
+                return `
+                    <tr>
+                        <td><strong>${med.Drugname}</strong></td>
+                        <td>${med.TotalPatients.toLocaleString()}</td>
+                        <td>${med.TotalDispenses.toLocaleString()}</td>
+                        <td>${avgRepeats}</td>
+                        <td>${med.LongTermScripts.toLocaleString()}</td>
+                        <td><strong class="compliance-rate">${chronicRate}%</strong></td>
+                        <td>
+                            ${chronicRate >= 75 ? '<span class="chronic-indicator">High Chronic</span>' : 
+                              chronicRate >= 50 ? '<span class="chronic-indicator">Moderate Chronic</span>' :
+                              '<span class="chronic-indicator">Low Chronic</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function applyFilters() {
+            if (!selectedStore) {
+                alert('Please select a store first');
+                return;
+            }
+            loadAdherenceData();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStores();
+        });
+    </script>
+</body>
+</html>

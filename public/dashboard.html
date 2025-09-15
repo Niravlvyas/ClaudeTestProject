@@ -286,11 +286,11 @@
             <div class="action-buttons">
                 <button class="action-btn" onclick="viewPharmacies()">View Pharmacies</button>
                 <button class="action-btn" onclick="viewUsers()">Manage Users</button>
-                <button class="action-btn" onclick="viewExtractions()">Extraction Status</button>
                 <button class="action-btn" onclick="viewReports()">Reports</button>
                 <button class="action-btn" onclick="viewPatientAdherence()">Patient Adherence</button>
                 <button class="action-btn" onclick="viewRefillPredictions()">🔮 Refill Predictions</button>
                 <button class="action-btn" onclick="openSupportChat()">🤖 Support Assistant</button>
+                <button class="action-btn" onclick="viewUserManagement()">👥 User Management</button>
                 <button class="action-btn" onclick="viewSettings()">Settings</button>
             </div>
         </div>
@@ -334,10 +334,6 @@
             alert('User management feature coming soon!');
         }
 
-        function viewExtractions() {
-            alert('Extraction status feature coming soon!');
-        }
-
         function viewReports() {
             window.location.href = '/analytics';
         }
@@ -352,6 +348,10 @@
 
         function openSupportChat() {
             window.location.href = '/support-chat';
+        }
+
+        function viewUserManagement() {
+            window.location.href = '/user-management';
         }
 
         function viewSettings() {

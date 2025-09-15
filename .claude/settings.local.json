@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill:*)",
+      "Bash(npm start)",
+      "Bash(taskkill:*)",
+      "Bash(wmic process where:*)",
+      "Bash(tasklist)",
+      "Bash(findstr:*)",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

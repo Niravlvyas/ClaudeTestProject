@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const dataSource = require('./dataSource');
 const { connectToDatabase } = require('./database');
+const emailService = require('./emailService');
 require('dotenv').config();
 
 const app = express();
@@ -71,6 +72,16 @@ app.post('/api/login', async (req, res) => {
         if (isValid) {
             const userData = await dataSource.getUserByUsername(username);
             
+            // Get user permissions
+            let permissions = [];
+            try {
+                permissions = await dataSource.executeStoredProcedure('usp_get_user_permissions', {
+                    Username: username
+                });
+            } catch (permError) {
+                console.log('Could not load permissions for user:', username);
+            }
+            
             req.session.user = {
                 username: username,
                 userId: userData?.Userid,
@@ -80,7 +91,10 @@ app.post('/api/login', async (req, res) => {
                 status: userData?.Status,
                 statusUDC: userData?.StatusUDC,
                 isActive: userData?.StatusUDC === 'SUS10',
-                isSuperAdmin: userData?.IsSuperAdmin
+                isSuperAdmin: userData?.IsSuperAdmin,
+                roleId: userData?.RoleID,
+                roleName: userData?.RoleName,
+                permissions: permissions.map(p => p.PermissionName) || []
             };
 
             return res.json({
@@ -401,7 +415,14 @@ app.get('/patient-adherence', (req, res) => {
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    
+
+    res.sendFile(path.join(__dirname, '../public/patient-adherence.html'));
+});
+
+// Test route for patient adherence (bypasses authentication)
+app.get('/test/patient-adherence', (req, res) => {
+    // Set a test session
+    req.session.user = { username: 'testuser', role: 'admin' };
     res.sendFile(path.join(__dirname, '../public/patient-adherence.html'));
 });
 
@@ -724,7 +745,7 @@ app.get('/api/refill-predictions', async (req, res) => {
     }
     
     try {
-        const { storeId } = req.query;
+        const { storeId, days = 3 } = req.query;  // Default to 3 days
         
         if (!storeId) {
             return res.json({
@@ -735,7 +756,8 @@ app.get('/api/refill-predictions', async (req, res) => {
             });
         }
         
-        console.log(`Generating refill predictions for store: ${storeId}`);
+        console.log(`Generating refill predictions for store: ${storeId}, days: ${days}`);
+        console.log(`Date filter: DispensedDate >= DATEADD(day, -44, GETDATE()) = ${new Date(Date.now() - 44 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`);
         
         // Get store information
         const storeInfo = await dataSource.executeCustomQuery(`
@@ -774,6 +796,7 @@ app.get('/api/refill-predictions', async (req, res) => {
                     AND d.TotalRepeats > 1
                     AND d.PatPharmSysID IS NOT NULL
                     AND d.Drugname IS NOT NULL
+                    AND d.DispensedDate >= DATEADD(day, -44, GETDATE())  -- Filter old dispenses here
             ),
             ValidRefills AS (
                 SELECT 
@@ -787,6 +810,7 @@ app.get('/api/refill-predictions', async (req, res) => {
                     PredictedRefillDate,
                     contactemail,
                     CASE 
+                        WHEN PredictedRefillDate < CAST(GETDATE() as date) THEN 'Overdue'
                         WHEN CAST(PredictedRefillDate as date) = CAST(GETDATE() as date) THEN 'Due Today'
                         WHEN CAST(PredictedRefillDate as date) = CAST(DATEADD(day, 1, GETDATE()) as date) THEN 'Due Tomorrow'
                         WHEN PredictedRefillDate <= DATEADD(day, 7, GETDATE()) THEN 'Due This Week'
@@ -797,7 +821,7 @@ app.get('/api/refill-predictions', async (req, res) => {
                 FROM LastDispenses
                 WHERE rn = 1
                     AND RepeatNo < TotalRepeats  -- Patient has repeats remaining
-                    AND PredictedRefillDate <= DATEADD(day, 30, GETDATE())  -- Only show next 30 days
+                    AND PredictedRefillDate <= DATEADD(day, ${days}, GETDATE())  -- Dynamic days filter
             )
             SELECT 
                 PatPharmSysID as PatientId,
@@ -814,6 +838,7 @@ app.get('/api/refill-predictions', async (req, res) => {
             FROM ValidRefills
             ORDER BY 
                 CASE Urgency
+                    WHEN 'Overdue' THEN 0
                     WHEN 'Due Today' THEN 1
                     WHEN 'Due Tomorrow' THEN 2
                     WHEN 'Due This Week' THEN 3
@@ -840,17 +865,19 @@ app.get('/api/refill-predictions', async (req, res) => {
                 WHERE d.StoreId = ${storeId}
                     AND d.TotalRepeats > 1
                     AND d.PatPharmSysID IS NOT NULL
+                    AND d.DispensedDate >= DATEADD(day, -44, GETDATE())  -- Filter old dispenses here
             )
             SELECT 
                 COUNT(*) as TotalPredictions,
+                SUM(CASE WHEN PredictedRefillDate < CAST(GETDATE() as date) THEN 1 ELSE 0 END) as Overdue,
                 SUM(CASE WHEN CAST(PredictedRefillDate as date) = CAST(GETDATE() as date) THEN 1 ELSE 0 END) as DueToday,
                 SUM(CASE WHEN PredictedRefillDate <= DATEADD(day, 7, GETDATE()) THEN 1 ELSE 0 END) as DueThisWeek,
-                SUM(CASE WHEN PredictedRefillDate <= DATEADD(day, 30, GETDATE()) THEN 1 ELSE 0 END) as DueThisMonth,
+                SUM(CASE WHEN PredictedRefillDate <= DATEADD(day, ${days}, GETDATE()) THEN 1 ELSE 0 END) as DueInSelectedPeriod,
                 COUNT(DISTINCT PatPharmSysID) as UniquePatients
             FROM LastDispenses
             WHERE rn = 1
                 AND RepeatNo < TotalRepeats
-                AND PredictedRefillDate <= DATEADD(day, 30, GETDATE())
+                AND PredictedRefillDate <= DATEADD(day, ${days}, GETDATE())
         `);
         
         console.log(`Found ${refillPredictions.length} refill predictions for store ${storeId}`);
@@ -860,10 +887,12 @@ app.get('/api/refill-predictions', async (req, res) => {
             predictions: refillPredictions || [],
             summary: {
                 totalPredictions: summary[0]?.TotalPredictions || 0,
+                overdue: summary[0]?.Overdue || 0,
                 dueToday: summary[0]?.DueToday || 0,
                 dueThisWeek: summary[0]?.DueThisWeek || 0,
-                dueThisMonth: summary[0]?.DueThisMonth || 0,
-                uniquePatients: summary[0]?.UniquePatients || 0
+                dueInSelectedPeriod: summary[0]?.DueInSelectedPeriod || 0,
+                uniquePatients: summary[0]?.UniquePatients || 0,
+                selectedDays: days
             },
             storeInfo: storeInfo[0] || null
         });
@@ -873,7 +902,7 @@ app.get('/api/refill-predictions', async (req, res) => {
             error: 'Failed to load refill predictions',
             user: req.session.user,
             predictions: [],
-            summary: { totalPredictions: 0, dueToday: 0, dueThisWeek: 0, dueThisMonth: 0, uniquePatients: 0 },
+            summary: { totalPredictions: 0, overdue: 0, dueToday: 0, dueThisWeek: 0, dueInSelectedPeriod: 0, uniquePatients: 0, selectedDays: 3 },
             storeInfo: null
         });
     }
@@ -905,7 +934,294 @@ app.post('/api/chat', async (req, res) => {
 async function processChatMessage(message) {
     const lowerMessage = message.toLowerCase();
     
-    // Check for pharmacy ID lookup
+    // Check for "BIR StoreID" command for detailed BuyItRight heart beat analysis
+    if (lowerMessage.startsWith('bir ') && /bir\s+\d+/i.test(message)) {
+        const storeId = message.match(/bir\s+(\d+)/i)[1];
+        try {
+            // First check if store has BIR integration enabled
+            const storeCheck = await dataSource.executeCustomQuery(`
+                SELECT 
+                    PharmacyID as StoreId,
+                    CommercialName as StoreName,
+                    BIRExtractionFlag,
+                    CASE WHEN BIRExtractionFlag = 1 THEN 'Active' ELSE 'Inactive' END as BIRStatus
+                FROM pharmacy_master 
+                WHERE PharmacyID = ${storeId}
+            `);
+            
+            if (!storeCheck || storeCheck.length === 0) {
+                return { response: `Store ${storeId} not found in pharmacy master data.` };
+            }
+            
+            const store = storeCheck[0];
+            
+            if (store.BIRExtractionFlag !== 1) {
+                return {
+                    response: `
+                        <div class="info-card">
+                            <h4>💓 BIR Heart Beat Analysis - Store ${storeId}</h4>
+                            <div style="background: #f8d7da; padding: 1rem; border-radius: 5px; color: #721c24;">
+                                <h5>❌ BIR Integration Inactive</h5>
+                                <p><strong>Store:</strong> ${store.StoreName}</p>
+                                <p><strong>Status:</strong> BuyItRight integration is not enabled for this store.</p>
+                                <p>Contact the implementation team to enable BIR integration.</p>
+                            </div>
+                        </div>
+                    `,
+                    isHtml: true
+                };
+            }
+            
+            // Get detailed BIR heart beat information
+            const birHeartBeats = await dataSource.executeCustomQuery(`
+                EXEC datax_configuration.dbo.usp_bir_heart_beats_get @StoreId = ${storeId}
+            `);
+            
+            if (!birHeartBeats || birHeartBeats.length === 0) {
+                return {
+                    response: `
+                        <div class="info-card">
+                            <h4>💓 BIR Heart Beat Analysis - Store ${storeId}</h4>
+                            <p><strong>Store:</strong> ${store.StoreName}</p>
+                            <div style="background: #fff3cd; padding: 1rem; border-radius: 5px; color: #664d03; margin-top: 1rem;">
+                                <h5>⚠️ No Heart Beat Data</h5>
+                                <p>No heart beat data found for this store. This could mean:</p>
+                                <ul style="margin-left: 1.5rem;">
+                                    <li>BIR application is not running on the store</li>
+                                    <li>Network connectivity issues</li>
+                                    <li>Application is not configured properly</li>
+                                    <li>Store has just been set up and hasn't sent first ping</li>
+                                </ul>
+                                <p><strong>Expected Frequency:</strong> Every 30 minutes</p>
+                            </div>
+                        </div>
+                    `,
+                    isHtml: true
+                };
+            }
+            
+            // Build detailed heart beat analysis
+            const heartBeat = birHeartBeats[0];
+            const now = new Date();
+            let lastBeatTime = null;
+            let timeSinceLastBeat = null;
+            let status = 'Unknown';
+            let statusColor = '#6c757d';
+            let statusIcon = '❓';
+            
+            if (heartBeat.lastping) {
+                lastBeatTime = new Date(heartBeat.lastping);
+                timeSinceLastBeat = Math.floor((now - lastBeatTime) / (1000 * 60)); // minutes
+                
+                if (timeSinceLastBeat <= 30) {
+                    status = 'Healthy';
+                    statusColor = '#198754';
+                    statusIcon = '💚';
+                } else if (timeSinceLastBeat <= 60) {
+                    status = 'Warning';
+                    statusColor = '#ffc107';
+                    statusIcon = '⚠️';
+                } else {
+                    status = 'Critical';
+                    statusColor = '#dc3545';
+                    statusIcon = '🚨';
+                }
+            }
+            
+            return {
+                response: `
+                    <div class="info-card">
+                        <h4>💓 BIR Heart Beat Analysis - Store ${storeId}</h4>
+                        <p><strong>Store:</strong> ${store.StoreName}</p>
+                        
+                        <div style="background: ${status === 'Healthy' ? '#e8f5e8' : status === 'Warning' ? '#fff3cd' : '#f8d7da'}; padding: 1rem; border-radius: 5px; margin: 1rem 0; border-left: 4px solid ${statusColor};">
+                            <h5 style="color: ${statusColor}; margin-bottom: 0.5rem;">${statusIcon} Status: ${status}</h5>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <p><strong>Last Heart Beat:</strong><br>${heartBeat.lastping ? new Date(heartBeat.lastping).toLocaleString() : 'N/A'}</p>
+                                    <p><strong>Previous Heart Beat:</strong><br>${heartBeat.previousping ? new Date(heartBeat.previousping).toLocaleString() : 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p><strong>Time Since Last Beat:</strong><br>${timeSinceLastBeat !== null ? timeSinceLastBeat + ' minutes' : 'N/A'}</p>
+                                    <p><strong>Expected Frequency:</strong><br>Every 30 minutes</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px;">
+                            <h6 style="color: #666; margin-bottom: 0.5rem;">📋 Troubleshooting Guide</h6>
+                            ${status === 'Healthy' ? `
+                                <p style="color: #198754; margin: 0;">✅ BIR application is running normally. No action required.</p>
+                            ` : status === 'Warning' ? `
+                                <p style="color: #856404; margin: 0;">⚠️ Heart beat is delayed. Monitor for next 30 minutes.</p>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">• Check store network connectivity<br>• Verify BIR application is running</p>
+                            ` : `
+                                <p style="color: #721c24; margin: 0;">🚨 Heart beat is missing. Immediate action required.</p>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">• Contact store to check BIR application<br>• Verify network connectivity<br>• Check if application needs restart</p>
+                            `}
+                        </div>
+                    </div>
+                `,
+                isHtml: true
+            };
+            
+        } catch (error) {
+            console.error('BIR command error:', error);
+            return { response: `Error retrieving BIR information for store ${storeId}: ${error.message}` };
+        }
+    }
+    
+    // Check for "Info StoreID" command
+    if (lowerMessage.startsWith('info ') && /info\s+\d+/i.test(message)) {
+        const storeId = message.match(/info\s+(\d+)/i)[1];
+        try {
+            // Get comprehensive store information including BIR status
+            const storeInfo = await dataSource.executeCustomQuery(`
+                SELECT 
+                    p.PharmacyID as StoreId,
+                    p.CommercialName as StoreName,
+                    p.TimeZoneState as State,
+                    p.ContactPerson1 as ContactPerson,
+                    p.ContactNumber,
+                    CASE WHEN p.ExcludeHC = 1 THEN 'Inactive' ELSE 'Active' END as Status,
+                    CASE WHEN p.BIRExtractionFlag = 1 THEN 'Active' ELSE 'Inactive' END as BIRStatus
+                FROM pharmacy_master p 
+                WHERE p.PharmacyID = ${storeId}
+            `);
+            
+            if (!storeInfo || storeInfo.length === 0) {
+                return { response: `Store ${storeId} not found in pharmacy master data.` };
+            }
+            
+            const store = storeInfo[0];
+            
+            // Get last sales transaction
+            let lastSales = null;
+            try {
+                const salesData = await dataSource.executeTransactionQuery(`
+                    SELECT TOP 1 
+                        CONVERT(varchar, SalesDate, 120) as LastSalesDate,
+                        COUNT(*) OVER() as TotalSalesToday
+                    FROM dw_production.dbo.sales_transactions 
+                    WHERE StoreId = '${storeId}'
+                    ORDER BY SalesDate DESC
+                `);
+                lastSales = salesData[0];
+            } catch (e) {
+                console.log('Sales data not available for store:', storeId);
+            }
+            
+            // Get stock counts
+            let stockInfo = { StockCount: 0, UniqueBarcodes: 0, TotalLinks: 0 };
+            try {
+                const stockCount = await dataSource.executeTransactionQuery(`
+                    SELECT COUNT(*) as StockCount
+                    FROM store_stock 
+                    WHERE StoreId = '${storeId}'
+                `);
+                
+                const barcodeCount = await dataSource.executeTransactionQuery(`
+                    SELECT 
+                        COUNT(DISTINCT EAN) as UniqueBarcodes,
+                        COUNT(*) as TotalLinks
+                    FROM store_ean_lnk_stock 
+                    WHERE StoreId = '${storeId}'
+                `);
+                
+                stockInfo = {
+                    StockCount: stockCount[0]?.StockCount || 0,
+                    UniqueBarcodes: barcodeCount[0]?.UniqueBarcodes || 0,
+                    TotalLinks: barcodeCount[0]?.TotalLinks || 0
+                };
+            } catch (e) {
+                console.log('Stock data not available for store:', storeId);
+            }
+            
+            
+            // Get total patients count
+            let patientCount = 0;
+            try {
+                const patientData = await dataSource.executeTransactionQuery(`
+                    SELECT COUNT(DISTINCT PatientId) as TotalPatients
+                    FROM dw_production.dbo.patient 
+                    WHERE StoreId = '${storeId}'
+                `);
+                patientCount = patientData[0]?.TotalPatients || 0;
+            } catch (e) {
+                // Try alternative patient count from dispense data
+                try {
+                    const altPatientData = await dataSource.executeTransactionQuery(`
+                        SELECT COUNT(DISTINCT PatPharmSysID) as TotalPatients
+                        FROM dw_production.dbo.dispense_transactions 
+                        WHERE StoreId = '${storeId}'
+                    `);
+                    patientCount = altPatientData[0]?.TotalPatients || 0;
+                } catch (e2) {
+                    console.log('Patient count not available for store:', storeId);
+                }
+            }
+            
+            // Get BIR Heart Beat information if store has BIR integration
+            let birHeartBeat = null;
+            if (store.BIRStatus === 'Active') {
+                try {
+                    const birData = await dataSource.executeCustomQuery(`
+                        EXEC datax_configuration.dbo.usp_bir_heart_beats_get @StoreId = ${storeId}
+                    `);
+                    birHeartBeat = birData[0]; // Assuming stored proc returns recent heart beat info
+                } catch (e) {
+                    console.log('BIR heart beat data not available for store:', storeId);
+                }
+            }
+            
+            return {
+                response: `
+                    <div class="info-card">
+                        <h4>📍 Store Information - ID: ${store.StoreId}</h4>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0;">
+                            <div>
+                                <h5 style="color: #667eea; margin-bottom: 0.5rem;">🏪 Store Details</h5>
+                                <p><strong>Name:</strong> ${store.StoreName || 'N/A'}</p>
+                                <p><strong>State:</strong> ${store.State || 'N/A'}</p>
+                                <p><strong>Status:</strong> <span style="color: ${store.Status === 'Active' ? '#198754' : '#dc3545'}">${store.Status}</span></p>
+                                <p><strong>BIR Integration:</strong> <span style="color: ${store.BIRStatus === 'Active' ? '#198754' : '#dc3545'}">${store.BIRStatus}</span></p>
+                                <p><strong>Contact:</strong> ${store.ContactPerson || 'N/A'}</p>
+                                <p><strong>Phone:</strong> ${store.ContactNumber || 'N/A'}</p>
+                            </div>
+                            
+                            <div>
+                                <h5 style="color: #667eea; margin-bottom: 0.5rem;">📊 Activity Summary</h5>
+                                <p><strong>Last Sales:</strong> ${lastSales?.LastSalesDate || 'No data'}</p>
+                                <p><strong>Total Patients:</strong> ${patientCount.toLocaleString()}</p>
+                                <p><strong>Stock Records:</strong> ${stockInfo.StockCount.toLocaleString()}</p>
+                                <p><strong>Unique Barcodes:</strong> ${stockInfo.UniqueBarcodes.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        
+                        
+                        ${store.BIRStatus === 'Active' ? `
+                            <div style="background: ${birHeartBeat ? '#e8f5e8' : '#fff3cd'}; padding: 0.5rem; border-radius: 5px; margin-top: 1rem; border-left: 4px solid ${birHeartBeat ? '#198754' : '#ffc107'};">
+                                <h6 style="margin: 0 0 0.5rem 0; color: #666;">💓 BIR Heart Beat Status</h6>
+                                ${birHeartBeat ? `
+                                    <p style="margin: 0; font-size: 0.9rem;"><strong>Status:</strong> <span style="color: #198754;">✓ Active</span> | <strong>Last Beat:</strong> ${birHeartBeat.lastping ? new Date(birHeartBeat.lastping).toLocaleString() : 'N/A'} | <strong>Previous Beat:</strong> ${birHeartBeat.previousping ? new Date(birHeartBeat.previousping).toLocaleString() : 'N/A'}</p>
+                                ` : `
+                                    <p style="margin: 0; font-size: 0.9rem; color: #856404;"><strong>Status:</strong> ⚠️ No recent heart beat data available</p>
+                                `}
+                            </div>
+                        ` : ''}
+                    </div>
+                `,
+                isHtml: true
+            };
+            
+        } catch (error) {
+            console.error('Info command error:', error);
+            return { response: `Error retrieving information for store ${storeId}: ${error.message}` };
+        }
+    }
+    
+    // Check for pharmacy ID lookup (legacy support)
     if (lowerMessage.includes('pharmacy') && (lowerMessage.includes('id') || /\d+/.test(message))) {
         const pharmacyId = message.match(/\d+/);
         if (pharmacyId) {
@@ -1167,14 +1483,124 @@ async function processChatMessage(message) {
         }
     }
     
-    // Check for store error queries
+    // Check for "Error StoreID" command (standardized format)
+    if (lowerMessage.startsWith('error ') && /error\s+\d+/i.test(message)) {
+        const storeId = message.match(/error\s+(\d+)/i)[1];
+        
+        try {
+            // Query system_error_table in DataX_Configuration for last 3 days
+            const errorQuery = await dataSource.executeCustomQuery(`
+                SELECT TOP 50
+                    PharmacyId,
+                    ErrorID,
+                    ErrorIndicator,
+                    ErrorTypeUDC,
+                    ErrorSource,
+                    ErrorMessage,
+                    StepUDC,
+                    TableName,
+                    CONVERT(varchar, ErrorDate, 120) as ErrorDate
+                FROM DataX_Configuration.dbo.system_error_table
+                WHERE PharmacyId = '${storeId}'
+                    AND ErrorDate >= DATEADD(day, -3, GETDATE())
+                ORDER BY ErrorDate DESC
+            `);
+            
+            if (errorQuery && errorQuery.length > 0) {
+                // Group errors by type and source for summary
+                const errorTypeSummary = {};
+                const errorSourceSummary = {};
+                
+                errorQuery.forEach(error => {
+                    const type = error.ErrorTypeUDC || 'Unknown';
+                    if (!errorTypeSummary[type]) {
+                        errorTypeSummary[type] = 0;
+                    }
+                    errorTypeSummary[type]++;
+                    
+                    const source = error.ErrorSource || 'Unknown';
+                    if (!errorSourceSummary[source]) {
+                        errorSourceSummary[source] = 0;
+                    }
+                    errorSourceSummary[source]++;
+                });
+                
+                let summaryHtml = `
+                    <div class="info-card">
+                        <h4>🚨 Error Summary - Store ${storeId} (Last 3 Days)</h4>
+                        <p><strong>Total Errors:</strong> ${errorQuery.length}</p>
+                        <hr style="margin: 10px 0;">
+                        <h5>Error Types:</h5>
+                `;
+                
+                for (const [type, count] of Object.entries(errorTypeSummary)) {
+                    summaryHtml += `<p style="margin-left: 1rem;">• ${type}: ${count}</p>`;
+                }
+                
+                summaryHtml += `<hr style="margin: 10px 0;"><h5>Error Sources:</h5>`;
+                for (const [source, count] of Object.entries(errorSourceSummary)) {
+                    summaryHtml += `<p style="margin-left: 1rem;">• ${source}: ${count}</p>`;
+                }
+                
+                // Show recent 5 errors in detail
+                summaryHtml += `
+                    <hr style="margin: 10px 0;">
+                    <h5>Recent Errors (Latest 5):</h5>
+                    <table class="data-table" style="font-size: 0.9em;">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Type</th>
+                                <th>Source</th>
+                                <th>Table</th>
+                                <th>Error Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                errorQuery.slice(0, 5).forEach(error => {
+                    const errorDateTime = error.ErrorDate || 'N/A';
+                    summaryHtml += `
+                        <tr>
+                            <td>${errorDateTime}</td>
+                            <td>${error.ErrorTypeUDC || 'N/A'}</td>
+                            <td>${error.ErrorSource || 'N/A'}</td>
+                            <td>${error.TableName || 'N/A'}</td>
+                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;" title="${error.ErrorMessage || ''}">${(error.ErrorMessage || 'N/A').substring(0, 60)}${error.ErrorMessage && error.ErrorMessage.length > 60 ? '...' : ''}</td>
+                        </tr>
+                    `;
+                });
+                
+                summaryHtml += '</tbody></table></div>';
+                
+                return {
+                    response: summaryHtml,
+                    isHtml: true
+                };
+            } else {
+                return { 
+                    response: `<div class="info-card">
+                        <h4>✅ No Errors Found</h4>
+                        <p>No errors found for store ${storeId} in the last 3 days. The system appears to be running smoothly!</p>
+                    </div>`,
+                    isHtml: true
+                };
+            }
+        } catch (error) {
+            console.error('Error command failed:', error);
+            return { response: `Error checking system errors for store ${storeId}: ${error.message}` };
+        }
+    }
+    
+    // Check for store error queries (legacy support)
     if ((lowerMessage.includes('error') || lowerMessage.includes('issue') || lowerMessage.includes('problem')) && 
         (lowerMessage.includes('store') || /\d+/.test(message))) {
         
         const storeId = message.match(/\d+/);
         if (!storeId) {
             return { 
-                response: 'Please provide a store ID to check errors. For example: "Show errors for store 1234" or "Store 1234 errors"' 
+                response: 'Please provide a store ID to check errors. For example: "Error 1234" or legacy "Show errors for store 1234"' 
             };
         }
         
@@ -1316,10 +1742,15 @@ async function processChatMessage(message) {
     
     // Default response with suggestions
     return {
-        response: `I'm not sure I understood your request. Here are some things I can help with:
-        
+        response: `I'm not sure I understood your request. Here are the standardized commands I can help with:
+
+🔧 **Quick Commands:**
+• **Info 1234** - Complete store information (sales, stock, dispense data, patient count, BIR status)
+• **Error 1234** - Recent errors for store (last 3 days)  
+• **BIR 1234** - Detailed BuyItRight heart beat analysis and troubleshooting
+
+📋 **Legacy Commands (still supported):**
 • Find pharmacy by ID (e.g., "Show pharmacy 1234")
-• Check store errors (e.g., "Show errors for store 245" or "Store 245 issues")
 • Last sales transaction (e.g., "Last sales for store 245")
 • Last dispense transaction (e.g., "Last dispense for store 245")
 • Stock & barcode counts (e.g., "Stock count for store 245")
@@ -1328,8 +1759,258 @@ async function processChatMessage(message) {
 • Patient medication history
 • System troubleshooting
         
-Please try rephrasing your question or select one of the quick actions.`
+**Tip:** Use the new standardized commands for faster, comprehensive results!`
     };
+}
+
+// ================================
+// USER MANAGEMENT ENDPOINTS
+// ================================
+
+// Get user management page
+app.get('/user-management', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login');
+    }
+    
+    // Check if user has permission to manage users
+    if (!hasPermissionSync(req.session.user, 'MANAGE_USERS')) {
+        return res.status(403).send('<h1>Access Denied</h1><p>You do not have permission to access user management.</p><a href="/dashboard">Return to Dashboard</a>');
+    }
+    
+    res.sendFile(path.join(__dirname, '..', 'public', 'user-management.html'));
+});
+
+// Get all users with roles
+app.get('/api/users', requirePermission('MANAGE_USERS'), async (req, res) => {
+    
+    try {
+        const users = await dataSource.executeCustomQuery(`
+            SELECT 
+                u.Userid,
+                u.Username,
+                u.Email,
+                u.Firstname,
+                u.Lastname,
+                u.Status,
+                u.StatusUDC,
+                u.IsSuperAdmin,
+                u.CreatedDate,
+                u.UpdatedDate,
+                r.RoleName,
+                r.RoleDescription
+            FROM sys_user_master u
+            LEFT JOIN user_roles r ON u.RoleID = r.RoleID
+            ORDER BY u.CreatedDate DESC
+        `);
+        
+        res.json({
+            users: users || [],
+            currentUser: req.session.user
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// Get all roles
+app.get('/api/roles', requirePermission('MANAGE_USERS'), async (req, res) => {
+    
+    try {
+        const roles = await dataSource.executeCustomQuery(`
+            SELECT RoleID, RoleName, RoleDescription, IsActive
+            FROM user_roles
+            WHERE IsActive = 1
+            ORDER BY RoleName
+        `);
+        
+        res.json({ roles: roles || [] });
+    } catch (error) {
+        console.error('Error fetching roles:', error);
+        res.status(500).json({ error: 'Failed to fetch roles' });
+    }
+});
+
+// Create new user
+app.post('/api/users', requirePermission('MANAGE_USERS'), async (req, res) => {
+    
+    const { username, password, email, firstname, lastname, roleId } = req.body;
+    
+    if (!username || !password || !email || !firstname || !lastname || !roleId) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    try {
+        const result = await dataSource.executeStoredProcedure('usp_create_user', {
+            Username: username,
+            Password: password,
+            Email: email,
+            Firstname: firstname,
+            Lastname: lastname,
+            RoleID: roleId,
+            CreatedBy: req.session.user.username
+        });
+        
+        if (result[0]?.Result === 'ERROR') {
+            return res.status(400).json({ error: result[0].Message });
+        }
+        
+        res.json({
+            success: true,
+            message: 'User created successfully',
+            userId: result[0]?.UserID
+        });
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ error: 'Failed to create user' });
+    }
+});
+
+// Update user
+app.put('/api/users/:id', requirePermission('MANAGE_USERS'), async (req, res) => {
+    
+    const userId = req.params.id;
+    const { email, firstname, lastname, roleId, status } = req.body;
+    
+    if (!email || !firstname || !lastname || !roleId || !status) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    try {
+        const result = await dataSource.executeStoredProcedure('usp_update_user', {
+            UserID: userId,
+            Email: email,
+            Firstname: firstname,
+            Lastname: lastname,
+            RoleID: roleId,
+            Status: status,
+            ModifiedBy: req.session.user.username
+        });
+        
+        if (result[0]?.Result === 'ERROR') {
+            return res.status(400).json({ error: result[0].Message });
+        }
+        
+        res.json({
+            success: true,
+            message: 'User updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
+// Get user permissions
+app.get('/api/users/:username/permissions', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const username = req.params.username;
+    
+    try {
+        const permissions = await dataSource.executeStoredProcedure('usp_get_user_permissions', {
+            Username: username
+        });
+        
+        res.json({
+            username: username,
+            permissions: permissions || []
+        });
+    } catch (error) {
+        console.error('Error fetching user permissions:', error);
+        res.status(500).json({ error: 'Failed to fetch permissions' });
+    }
+});
+
+// ================================
+// EMAIL TEST ENDPOINTS
+// ================================
+
+// Email test page
+app.get('/email-test', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'email-test.html'));
+});
+
+// Verify email connection
+app.get('/api/email/verify', async (req, res) => {
+    try {
+        const result = await emailService.verifyConnection();
+        res.json(result);
+    } catch (error) {
+        console.error('Email verification error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to verify email connection',
+            error: error.message 
+        });
+    }
+});
+
+// Send test email
+app.post('/api/email/send-test', async (req, res) => {
+    try {
+        const { to, subject, message } = req.body;
+        
+        if (!to) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Recipient email is required' 
+            });
+        }
+        
+        const result = await emailService.sendTestEmail(to, subject, message);
+        res.json(result);
+    } catch (error) {
+        console.error('Send test email error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to send test email',
+            error: error.message 
+        });
+    }
+});
+
+// Get email configuration (without sensitive data)
+app.get('/api/email/config', (req, res) => {
+    res.json({
+        host: emailService.emailConfig.host,
+        port: emailService.emailConfig.port,
+        secure: emailService.emailConfig.secure,
+        user: emailService.emailConfig.auth.user,
+        // Don't send password
+        configured: true
+    });
+});
+
+// Middleware to check permissions
+function requirePermission(permissionName) {
+    return (req, res, next) => {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Not authenticated' });
+        }
+        
+        // Super admin has all permissions
+        if (req.session.user.isSuperAdmin) {
+            return next();
+        }
+        
+        // Check if user has the required permission
+        if (req.session.user.permissions && req.session.user.permissions.includes(permissionName)) {
+            return next();
+        }
+        
+        return res.status(403).json({ error: 'Insufficient permissions' });
+    };
+}
+
+// Helper function to check permissions
+function hasPermissionSync(user, permissionName) {
+    if (!user) return false;
+    if (user.isSuperAdmin) return true;
+    return user.permissions && user.permissions.includes(permissionName);
 }
 
 app.get('/logout', (req, res) => {
